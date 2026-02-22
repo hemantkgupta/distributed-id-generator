@@ -1,0 +1,5 @@
+description = 'Twitter Snowflake 64-bit distributed ID generator module'
+
+dependencies {
+    implementation project(':common')
+}

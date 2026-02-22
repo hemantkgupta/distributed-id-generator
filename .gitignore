@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+*/build/
+**/build/
+
+# IDE — personal files only (.vscode/extensions.json and settings.json ARE tracked
+#        so that all contributors get the Mermaid preview extension recommended)
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/*.log
+# The following private VSCode files need not be shared:
+.vscode/launch.json
+*.class
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

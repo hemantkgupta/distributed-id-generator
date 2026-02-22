@@ -1,0 +1,5 @@
+description = 'Hybrid Logical Clock (HLC) based Snowflake ID generator module - clock-drift resistant'
+
+dependencies {
+    implementation project(':common')
+}

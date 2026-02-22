@@ -1,0 +1,5 @@
+description = 'NanoID customizable random string ID generator module'
+
+dependencies {
+    implementation project(':common')
+}

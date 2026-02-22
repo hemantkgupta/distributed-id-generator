@@ -1,0 +1,22 @@
+{
+    // ── Markdown preview ────────────────────────────────────────────────────
+    // Open .md files with the preview pane on the right automatically
+    "markdown.preview.breaks": true,
+    // Ensure these security settings allow the Mermaid scripts to run
+    "markdown.preview.scrollPreviewWithEditor": true,
+    "markdown.preview.scrollEditorWithPreview": true,
+    "markdown.preview.doubleClickToSwitchToEditor": true,
+    // ── Editor quality-of-life ───────────────────────────────────────────────
+    "editor.wordWrap": "on",
+    "editor.bracketPairColorization.enabled": true,
+    "editor.formatOnSave": false,
+    // ── Java ─────────────────────────────────────────────────────────────────
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.updateBuildConfiguration": "automatic",
+    // ── File nesting (keeps explorer tidy) ──────────────────────────────────
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.patterns": {
+        "*.gradle": "*.gradle.kts, gradle.properties",
+        "settings.gradle": "build.gradle, gradlew, gradlew.bat, gradle"
+    }
+}

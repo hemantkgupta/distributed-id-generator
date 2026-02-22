@@ -1,0 +1,5 @@
+description = 'Common interfaces, utilities, and exceptions shared across all ID generator modules'
+
+dependencies {
+    // No extra dependencies needed for the common module
+}

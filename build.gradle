@@ -1,0 +1,39 @@
+allprojects {
+    group = 'com.distributed.idgen'
+    version = '1.0.0'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'java-library'
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    dependencies {
+        // JUnit 5
+        testImplementation platform('org.junit:junit-bom:5.10.2')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+        // AssertJ for fluent assertions
+        testImplementation 'org.assertj:assertj-core:3.25.3'
+    }
+
+    test {
+        useJUnitPlatform()
+        testLogging {
+            events 'passed', 'skipped', 'failed'
+            showStandardStreams = true
+        }
+    }
+
+    compileJava.options.encoding = 'UTF-8'
+    compileTestJava.options.encoding = 'UTF-8'
+}

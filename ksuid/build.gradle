@@ -1,0 +1,5 @@
+description = 'KSUID (K-Sortable Unique IDentifier) generator module'
+
+dependencies {
+    implementation project(':common')
+}

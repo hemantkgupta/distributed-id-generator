@@ -1,0 +1,5 @@
+description = 'ULID (Universally Unique Lexicographically Sortable Identifier) generator module'
+
+dependencies {
+    implementation project(':common')
+}

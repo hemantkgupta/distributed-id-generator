@@ -1,0 +1,5 @@
+description = 'UUID-based distributed ID generator module (UUIDv4 and UUIDv7)'
+
+dependencies {
+    implementation project(':common')
+}

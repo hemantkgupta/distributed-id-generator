@@ -1,0 +1,16 @@
+{
+  // VS Code will prompt any developer opening this workspace to install
+  // these recommended extensions if they don't already have them.
+  "recommendations": [
+    // Renders Mermaid diagrams inside the built-in Markdown preview (Ctrl/Cmd+Shift+V)
+    "bierner.markdown-mermaid",
+
+    // Optional but useful companions
+    // Highlights Mermaid syntax inside ```mermaid blocks while editing
+    "bierner.markdown-preview-github-styles",
+
+    // Java / Gradle tooling
+    "vscjava.vscode-java-pack",
+    "vscjava.vscode-gradle"
+  ]
+}

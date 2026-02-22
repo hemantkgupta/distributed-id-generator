@@ -1,0 +1,9 @@
+rootProject.name = 'distributed-id-generator'
+
+include 'common'
+include 'snowflake'
+include 'uuid-generator'
+include 'ulid'
+include 'ksuid'
+include 'nanoid'
+include 'hlc-snowflake'
