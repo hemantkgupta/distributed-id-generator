@@ -1,0 +1,5 @@
+description = 'MongoDB ObjectID generator module'
+
+dependencies {
+    implementation project(':common')
+}

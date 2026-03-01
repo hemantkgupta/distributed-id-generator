@@ -1,0 +1,14 @@
+description = 'etcd-backed Snowflake worker ID assigner module'
+
+dependencies {
+    implementation project(':common')
+    implementation project(':snowflake')
+    
+    implementation 'io.etcd:jetcd-core:0.7.7'
+
+    testImplementation 'org.testcontainers:testcontainers:1.19.7'
+    testImplementation 'org.testcontainers:junit-jupiter:1.19.7'
+    
+    // Often required by jetcd for grpc transitive dependencies on classpath
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.16.1'
+}
