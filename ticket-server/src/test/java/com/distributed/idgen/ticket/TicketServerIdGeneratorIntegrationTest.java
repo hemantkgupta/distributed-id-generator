@@ -28,7 +28,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("TicketServerIdGenerator integration")
 class TicketServerIdGeneratorIntegrationTest {
 
-    private static final String UPDATE_SQL = "UPDATE ticket_counter SET id = nextval('ticket_seq') WHERE stub = 'a'";
+    // PostgreSQL sequences are non-transactional, so nextval() can burn values while
+    // concurrent UPDATE statements wait on the hot row. Incrementing the persisted row
+    // itself preserves the strict 1..N ticket-server contract under contention.
+    private static final String UPDATE_SQL = "UPDATE ticket_counter SET id = id + 1 WHERE stub = 'a'";
     private static final String SELECT_SQL = "SELECT id FROM ticket_counter WHERE stub = 'a'";
 
     @Container
@@ -47,8 +50,6 @@ class TicketServerIdGeneratorIntegrationTest {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
             statement.execute("DROP TABLE IF EXISTS ticket_counter");
-            statement.execute("DROP SEQUENCE IF EXISTS ticket_seq");
-            statement.execute("CREATE SEQUENCE ticket_seq START WITH 1");
             statement.execute("CREATE TABLE ticket_counter (stub TEXT PRIMARY KEY, id BIGINT NOT NULL)");
             statement.execute("INSERT INTO ticket_counter(stub, id) VALUES ('a', 0)");
         }

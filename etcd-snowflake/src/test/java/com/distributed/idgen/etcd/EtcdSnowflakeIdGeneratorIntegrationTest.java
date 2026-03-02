@@ -25,10 +25,8 @@ class EtcdSnowflakeIdGeneratorIntegrationTest {
     static final GenericContainer<?> ETCD = new GenericContainer<>(DockerImageName.parse("quay.io/coreos/etcd:v3.5.15"))
             .withCommand(
                     "/usr/local/bin/etcd",
-                    "--advertise-client-urls=http://0.0.0.0:2379",
                     "--listen-client-urls=http://0.0.0.0:2379",
-                    "--listen-peer-urls=http://0.0.0.0:2380",
-                    "--initial-advertise-peer-urls=http://0.0.0.0:2380")
+                    "--advertise-client-urls=http://127.0.0.1:2379")
             .withExposedPorts(2379)
             .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofSeconds(30)));
 

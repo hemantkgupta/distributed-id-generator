@@ -27,10 +27,26 @@ subprojects {
         
         // Mockito for mocking
         testImplementation 'org.mockito:mockito-core:5.11.0'
+        
+        // Testcontainers diagnostics are otherwise silent without an slf4j backend
+        testRuntimeOnly 'org.slf4j:slf4j-simple:2.0.13'
     }
 
     test {
         useJUnitPlatform()
+        // Docker Desktop 29+ rejects older client API levels such as 1.41.
+        // Testcontainers 1.x can be forced to a compatible API level via docker-java's
+        // `api.version` system property.
+        systemProperty 'api.version', System.getProperty('api.version', '1.44')
+        systemProperty 'docker.api.version', System.getProperty('docker.api.version', '1.44')
+
+        ['DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH',
+         'TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE', 'TESTCONTAINERS_HOST_OVERRIDE'].each { key ->
+            def value = System.getenv(key)
+            if (value != null && !value.isBlank()) {
+                environment key, value
+            }
+        }
         testLogging {
             events 'passed', 'skipped', 'failed'
             showStandardStreams = true

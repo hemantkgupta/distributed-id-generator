@@ -6,9 +6,9 @@ dependencies {
     
     implementation 'io.etcd:jetcd-core:0.7.7'
 
-    testImplementation 'org.testcontainers:testcontainers:1.19.7'
-    testImplementation 'org.testcontainers:junit-jupiter:1.19.7'
-    
+    testImplementation 'org.testcontainers:testcontainers:1.21.4'
+    testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
+
     // Often required by jetcd for grpc transitive dependencies on classpath
     implementation 'com.fasterxml.jackson.core:jackson-annotations:2.16.1'
 }
