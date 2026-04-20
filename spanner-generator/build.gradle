@@ -1,0 +1,13 @@
+description = 'Spanner TrueTime Commit Timestamp ID Generator module'
+
+dependencies {
+    implementation project(':common')
+    
+    // Google Cloud Spanner Client
+    implementation platform('com.google.cloud:libraries-bom:26.34.0')
+    implementation 'com.google.cloud:google-cloud-spanner'
+
+    // Testing
+    testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
+    testImplementation 'org.testcontainers:gcloud:1.21.4'
+}

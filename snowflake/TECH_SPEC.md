@@ -1,7 +1,7 @@
 # snowflake/TECH_SPEC.md
 
 ## Overview
-The `snowflake` module implements Twitter's standard 64-bit numerical ID generator. It is the gold standard for high-throughput, microsecond-resolution, scalable environments where relational database primary keys demand numeric sequential locality.
+The `snowflake` module implements Twitter's standard 64-bit numerical ID generator. It is the gold standard for high-throughput, millisecond-resolution environments where relational database primary keys demand numeric sequential locality.
 
 ## 64-bit Structure (Bit Layout)
 
@@ -33,6 +33,6 @@ A standard Snowflake ID occupies exactly 64 bits (a Java `Long`):
 ## Trade-offs & Challenges
 1. **Clock Dependency (The NTP Problem)**:
    If the physical machine clock travels backward (via NTP re-sync), the algorithm risks generating duplicate sequence numbers for past milliseconds. 
-   **Resolution**: The `snowflake` implementation caches `lastTimestamp`. If current time < `lastTimestamp`, it violently throws an `IdGenerationException`, requiring the application to either handle the outage or crash. (See `hlc-snowflake` for a drift-resilient alternative).
+   **Resolution**: The `snowflake` implementation caches `lastTimestamp`. By default it uses a fail-fast policy and throws an `IdGenerationException` when `currentTime < lastTimestamp`, keeping the original Twitter behavior. For deployments that want limited tolerance, the generator also supports `ClockRollbackPolicy.BOUNDED_WAIT`, which waits only for small rollbacks and still refuses larger jumps. (See `hlc-snowflake` for a drift-resilient alternative).
 2. **Worker Coordinates**:
    The operator must guarantee that no two instances boot with the exact same `(datacenterId, workerId)` combination, otherwise, collisions are mathematically inevitable. (See `etcd-snowflake` for an automated assignment alternative).

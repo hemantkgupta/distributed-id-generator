@@ -1,8 +1,10 @@
 package com.distributed.idgen.uuid;
 
 import com.distributed.idgen.common.IdGenerator;
+import com.distributed.idgen.common.IdGeneratorUtils;
 
 import java.nio.ByteBuffer;
+import java.security.SecureRandom;
 import java.util.UUID;
 
 /**
@@ -37,7 +39,19 @@ import java.util.UUID;
  */
 public class UUIDv7Generator implements IdGenerator<String> {
 
-    private static final java.util.Random RNG = new java.security.SecureRandom();
+    private static final SecureRandom RNG = new SecureRandom();
+
+    private final boolean monotonic;
+    private long lastTimestamp = -1L;
+    private int lastRandA = 0;
+
+    public UUIDv7Generator() {
+        this(true);
+    }
+
+    public UUIDv7Generator(boolean monotonic) {
+        this.monotonic = monotonic;
+    }
 
     /**
      * Generates a UUIDv7 string in canonical 8-4-4-4-12 hex format.
@@ -54,17 +68,17 @@ public class UUIDv7Generator implements IdGenerator<String> {
      * </ol>
      */
     @Override
-    public String generate() {
-        long epochMs = System.currentTimeMillis();
+    public synchronized String generate() {
+        GenerationState state = nextState(currentUnixMillis());
 
         // 8 random bytes for the lower 64 bits
         byte[] randomBytes = new byte[8];
         RNG.nextBytes(randomBytes);
 
         // Assemble 128 bits into two 64-bit longs
-        long msb = (epochMs << 16) // bits 0–47 = timestamp
+        long msb = (state.epochMs() << 16) // bits 0–47 = timestamp
                 | (0x7000L) // bits 48–51 = version 7
-                | (RNG.nextLong() & 0x0FFFL); // bits 52–63 = rand_a (12 bits)
+                | state.randA(); // bits 52–63 = rand_a (12 bits)
 
         // Read 8 random bytes as lsb, then stamp variant bits (0b10) into bits 64–65
         long lsb = ByteBuffer.wrap(randomBytes).getLong();
@@ -75,6 +89,49 @@ public class UUIDv7Generator implements IdGenerator<String> {
 
     @Override
     public String strategyName() {
-        return "UUIDv7 (Time-Ordered 128-bit)";
+        return monotonic
+                ? "UUIDv7 (Time-Ordered 128-bit, monotonic rand_a)"
+                : "UUIDv7 (Time-Ordered 128-bit)";
+    }
+
+    boolean isMonotonic() {
+        return monotonic;
+    }
+
+    long currentUnixMillis() {
+        return System.currentTimeMillis();
+    }
+
+    private GenerationState nextState(long observedEpochMs) {
+        if (!monotonic) {
+            lastTimestamp = observedEpochMs;
+            lastRandA = RNG.nextInt(1 << 12);
+            return new GenerationState(observedEpochMs, lastRandA);
+        }
+
+        if (lastTimestamp == -1L || observedEpochMs > lastTimestamp) {
+            lastTimestamp = observedEpochMs;
+            lastRandA = RNG.nextInt(1 << 12);
+            return new GenerationState(lastTimestamp, lastRandA);
+        }
+
+        if (observedEpochMs < lastTimestamp) {
+            observedEpochMs = lastTimestamp;
+        }
+
+        int nextRandA = (lastRandA + 1) & 0x0FFF;
+        if (nextRandA == 0) {
+            long nextEpochMs = IdGeneratorUtils.waitNextMillis(lastTimestamp, this::currentUnixMillis);
+            lastTimestamp = nextEpochMs;
+            lastRandA = RNG.nextInt(1 << 12);
+            return new GenerationState(lastTimestamp, lastRandA);
+        }
+
+        lastTimestamp = observedEpochMs;
+        lastRandA = nextRandA;
+        return new GenerationState(lastTimestamp, lastRandA);
+    }
+
+    private record GenerationState(long epochMs, int randA) {
     }
 }

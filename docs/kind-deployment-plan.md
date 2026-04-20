@@ -41,6 +41,10 @@ Suggested configuration:
 - `JDBC_USERNAME`
 - `JDBC_PASSWORD`
 - `LEAF_BIZ_TAG`
+- `SPANNER_PROJECT`
+- `SPANNER_INSTANCE`
+- `SPANNER_DATABASE`
+- `SPANNER_EMULATOR_HOST`
 
 ## Strategy Support Matrix
 
@@ -57,6 +61,7 @@ Suggested configuration:
 | ETCD-Snowflake | etcd client | etcd |
 | Ticket Server | JDBC | PostgreSQL |
 | Leaf Segment | JDBC | PostgreSQL |
+| Spanner commit timestamp | Spanner client | External Cloud Spanner or Spanner emulator |
 
 ## kind On macOS
 
@@ -123,6 +128,17 @@ Required schema:
 - `ticket-server`: one sequence-driving table
 - `leaf-segment`: one allocation table keyed by `biz_tag`
 
+### Spanner Generator
+
+Use:
+- one `Deployment` for the application pod
+- external Cloud Spanner, or the Spanner emulator for local validation
+
+Notes:
+- this strategy is not `kind`-native in the same way PostgreSQL and etcd are
+- prefer emulator-backed integration tests before attempting an end-to-end Kubernetes profile
+- if a `kind` smoke profile is added later, the emulator should be packaged as a dedicated support deployment rather than embedded in the sidecar pod
+
 ## Manifest Layout
 
 Recommended directory shape when the services are added:
@@ -152,6 +168,7 @@ After the services are implemented, validate in this order:
 5. `kind` deployment smoke for `etcd-snowflake`
 6. `kind` deployment smoke for `ticket-server`
 7. `kind` deployment smoke for `leaf-segment`
+8. emulator-backed or managed-cloud smoke for `spanner-generator`
 
 ## Current Status
 
@@ -159,6 +176,7 @@ Current repository state:
 - the generator libraries are implemented
 - unit tests exist for all modules
 - live integration tests exist for `etcd-snowflake`, `ticket-server`, and `leaf-segment`
+- `spanner-generator` is implemented and validated with an emulator-backed integration test
 
 Not implemented yet:
 - `id-sidecar-service`

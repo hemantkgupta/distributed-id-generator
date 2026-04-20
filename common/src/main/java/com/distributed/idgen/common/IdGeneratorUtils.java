@@ -1,5 +1,7 @@
 package com.distributed.idgen.common;
 
+import java.util.function.LongSupplier;
+
 /**
  * Utility methods shared across ID generator modules.
  */
@@ -34,9 +36,21 @@ public final class IdGeneratorUtils {
      * @return the next millisecond timestamp
      */
     public static long waitNextMillis(long lastTimestamp) {
-        long ts = System.currentTimeMillis();
+        return waitNextMillis(lastTimestamp, System::currentTimeMillis);
+    }
+
+    /**
+     * Busy-spins until the supplied clock strictly exceeds {@code lastTimestamp}.
+     *
+     * @param lastTimestamp       the timestamp that must be surpassed
+     * @param currentTimeSupplier clock supplier in the same timestamp domain as
+     *                            {@code lastTimestamp}
+     * @return the next timestamp
+     */
+    public static long waitNextMillis(long lastTimestamp, LongSupplier currentTimeSupplier) {
+        long ts = currentTimeSupplier.getAsLong();
         while (ts <= lastTimestamp) {
-            ts = System.currentTimeMillis();
+            ts = currentTimeSupplier.getAsLong();
         }
         return ts;
     }

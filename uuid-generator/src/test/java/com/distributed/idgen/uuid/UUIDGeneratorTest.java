@@ -126,6 +126,43 @@ class UUIDGeneratorTest {
         }
 
         @Test
+        @DisplayName("Should be monotonic within the same millisecond by default")
+        void shouldBeMonotonicWithinSameMillisecondByDefault() {
+            UUIDv7Generator monotonicGen = new UUIDv7Generator() {
+                @Override
+                long currentUnixMillis() {
+                    return 1_700_000_000_000L;
+                }
+            };
+
+            String id1 = monotonicGen.generate();
+            String id2 = monotonicGen.generate();
+            String id3 = monotonicGen.generate();
+
+            assertThat(id2).isGreaterThan(id1);
+            assertThat(id3).isGreaterThan(id2);
+        }
+
+        @Test
+        @DisplayName("Should remain monotonic across a small backward clock step in monotonic mode")
+        void shouldRemainMonotonicAcrossClockRollback() {
+            UUIDv7Generator monotonicGen = new UUIDv7Generator() {
+                private final long[] timestamps = {1_700_000_000_000L, 1_699_999_999_999L};
+                private int idx = 0;
+
+                @Override
+                long currentUnixMillis() {
+                    return timestamps[Math.min(idx++, timestamps.length - 1)];
+                }
+            };
+
+            String first = monotonicGen.generate();
+            String second = monotonicGen.generate();
+
+            assertThat(second).isGreaterThan(first);
+        }
+
+        @Test
         @DisplayName("strategyName should mention UUIDv7")
         void strategyNameShouldMentionV7() {
             assertThat(generator.strategyName()).contains("UUIDv7");

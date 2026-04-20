@@ -1,6 +1,6 @@
 # Distributed ID Generator
 
-A Java 17 Gradle multi-module project implementing 11 concrete distributed ID generators across 10 algorithm modules.
+A Java 17 Gradle multi-module project implementing 12 distributed ID strategies across 11 algorithm modules.
 
 The repository is library-first today. The planned Kubernetes deployment shape is a two-container pod:
 - `id-client-demo`: a demo client that requests IDs.
@@ -22,24 +22,32 @@ distributed-id-generator/
 ├── ticket-server/
 ├── mongodb-objectid/
 ├── etcd-snowflake/
-└── leaf-segment/
+├── leaf-segment/
+└── spanner-generator/     # Cloud Spanner / TrueTime string IDs
 ```
 
-## Implemented Algorithms
+## Strategy Coverage
 
-| Module | Generator(s) | Output Type | Time-Ordered | External Coordination |
-|---|---|---|---|---|
-| `uuid-generator` | UUIDv4 | `String` | No | None |
-| `uuid-generator` | UUIDv7 | `String` | Yes | None |
-| `ulid` | ULID | `String` | Yes | None |
-| `ksuid` | KSUID | `String` | Yes | None |
-| `nanoid` | NanoID | `String` | No | None |
-| `mongodb-objectid` | MongoDB ObjectID | `String` | Yes | None |
-| `snowflake` | Twitter Snowflake | `Long` | Yes | Unique datacenter and worker IDs |
-| `hlc-snowflake` | HLC-Snowflake | `Long` | Yes | Unique worker ID |
-| `etcd-snowflake` | ETCD-backed Snowflake | `Long` | Yes | etcd lease-backed node assignment |
-| `ticket-server` | Ticket Server | `Long` | Yes | Relational database |
-| `leaf-segment` | Leaf Segment | `Long` | Yes | Relational database |
+| Module | Generator(s) | Output Type | Time-Ordered | External Coordination | Status |
+|---|---|---|---|---|---|
+| `uuid-generator` | UUIDv4 | `String` | No | None | Implemented |
+| `uuid-generator` | UUIDv7 | `String` | Yes | None | Implemented |
+| `ulid` | ULID | `String` | Yes | None | Implemented |
+| `ksuid` | KSUID | `String` | Yes | None | Implemented |
+| `nanoid` | NanoID | `String` | No | None | Implemented |
+| `mongodb-objectid` | MongoDB ObjectID | `String` | Yes | None | Implemented |
+| `snowflake` | Twitter Snowflake | `Long` | Yes | Unique datacenter and worker IDs | Implemented |
+| `hlc-snowflake` | HLC-Snowflake | `Long` | Yes | Unique worker ID | Implemented |
+| `etcd-snowflake` | ETCD-backed Snowflake | `Long` | Yes | etcd lease-backed node assignment | Implemented |
+| `ticket-server` | Ticket Server | `Long` | Yes | Relational database | Implemented |
+| `leaf-segment` | Leaf Segment | `Long` | Yes | Relational database | Implemented |
+| `spanner-generator` | Spanner commit-timestamp ID | `String` | Yes | Cloud Spanner / TrueTime | Implemented |
+
+Behavior notes:
+- `SnowflakeIdGenerator` defaults to fail-fast on backward clock movement and also supports bounded-wait recovery for small drifts.
+- `UUIDv7Generator` defaults to monotonic same-millisecond ordering by incrementing `rand_a`; pass `false` to opt into fully random `rand_a`.
+- `LeafSegmentIdGenerator` starts async prefetch after `90%` of the active block has been consumed.
+- `SpannerTrueTimeIdGenerator` uses Cloud Spanner commit timestamps and is typically verified against the Spanner emulator.
 
 ## Build And Test
 
@@ -60,17 +68,17 @@ Notes:
 - Java 17+ is required.
 - The Gradle wrapper downloads Gradle automatically.
 - Live integration tests use Testcontainers.
-- The etcd and PostgreSQL integration tests run when Docker is available and are skipped automatically otherwise.
+- The etcd, PostgreSQL, and Spanner emulator integration tests run when Docker is available and are skipped automatically otherwise.
 
 ## Test Coverage
 
-Every module has unit coverage. The stateful strategies also have live integration coverage:
+All implemented generator modules have unit coverage. The stateful strategies also have live integration coverage.
 
 | Module | Coverage Type | Main Scenarios |
 |---|---|---|
 | `common` | Unit | Validation and shared utility helpers |
-| `snowflake` | Unit | Bit layout, monotonicity, concurrency, clock rollback failure |
-| `uuid-generator` | Unit | UUIDv4 format, UUIDv7 format and ordering |
+| `snowflake` | Unit | Bit layout, monotonicity, concurrency, fail-fast rollback, bounded-wait recovery |
+| `uuid-generator` | Unit | UUIDv4 format, UUIDv7 format, monotonic same-ms ordering, rollback pinning |
 | `ulid` | Unit | Encoding, lexicographic ordering, monotonicity |
 | `ksuid` | Unit | Base62 encoding, format, ordering |
 | `nanoid` | Unit | Default and custom alphabets, construction guards |
@@ -79,6 +87,7 @@ Every module has unit coverage. The stateful strategies also have live integrati
 | `etcd-snowflake` | Unit + Integration | Mocked assignment logic plus live etcd-backed node assignment and ID generation |
 | `ticket-server` | Unit + Integration | Mocked JDBC behavior plus live PostgreSQL-backed sequential and concurrent generation |
 | `leaf-segment` | Unit + Integration | Dual-buffer correctness plus live PostgreSQL-backed range allocation |
+| `spanner-generator` | Unit + Integration | ID formatting/parsing plus Spanner emulator-backed commit timestamp generation |
 
 ## Documentation Map
 
@@ -97,6 +106,10 @@ Each algorithm module has a technical spec and a diagrams document.
 | `mongodb-objectid` | [mongodb-objectid/TECH_SPEC.md](mongodb-objectid/TECH_SPEC.md) | [mongodb-objectid/DIAGRAMS.md](mongodb-objectid/DIAGRAMS.md) |
 | `etcd-snowflake` | [etcd-snowflake/TECH_SPEC.md](etcd-snowflake/TECH_SPEC.md) | [etcd-snowflake/DIAGRAMS.md](etcd-snowflake/DIAGRAMS.md) |
 | `leaf-segment` | [leaf-segment/TECH_SPEC.md](leaf-segment/TECH_SPEC.md) | [leaf-segment/DIAGRAMS.md](leaf-segment/DIAGRAMS.md) |
+| `spanner-generator` | [spanner-generator/TECH_SPEC.md](spanner-generator/TECH_SPEC.md) | [spanner-generator/DIAGRAMS.md](spanner-generator/DIAGRAMS.md) |
+
+Cross-repo sync:
+- [docs/distributed-id-generation-code-companion.md](docs/distributed-id-generation-code-companion.md) — code-first companion and sync checklist for the long-form wiki/blog topic
 
 ## Kubernetes Target
 
@@ -109,6 +122,7 @@ The target end-to-end Kubernetes shape is:
    - Unique worker identity for `snowflake` and `hlc-snowflake`.
    - etcd for `etcd-snowflake`.
    - PostgreSQL for `ticket-server` and `leaf-segment`.
+   - Cloud Spanner or the Spanner emulator for `spanner-generator` (not `kind`-native).
 
 For local macOS testing, the target cluster is `kind`.
 

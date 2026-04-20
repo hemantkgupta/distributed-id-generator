@@ -30,6 +30,17 @@ UUIDv7 (RFC 9562) fixes the fatal indexing flaw of v4 by dedicating the most sig
 4. **Bits 64–65**: Variant bits `10`.
 5. **Bits 66–127**: 62 bits of cryptographically secure random data (`rand_b`).
 
+### Default Same-Millisecond Ordering
+
+This codebase enables UUIDv7 monotonic mode by default. Instead of treating `rand_a` as fully random on every call, the generator uses it as a small per-millisecond counter:
+
+1. The first UUID seen in a millisecond seeds `rand_a` randomly.
+2. Subsequent UUIDs in the same millisecond increment `rand_a`, preserving lexical order.
+3. Small backward wall-clock steps are pinned to the last observed millisecond so ordering does not regress locally.
+4. If `rand_a` overflows, the generator waits for the next millisecond and reseeds.
+
+This is close to RFC 9562's Method 1 behavior. If you want a pure-random `rand_a`, construct the generator with `new UUIDv7Generator(false)`.
+
 ## Trade-offs
 - **Storage Profile**: Uses `16 bytes` natively (or raw 36-char VARCHAR in MySQL/Postgres defaults). This doubles the memory/storage requirements of Snowflake (`8 bytes`).
 - **Cryptographic Security**: Unlike Snowflake (where timestamps and sequence numbers allow predicting competitors' creation rates), UUIDv7 obscures its internal cadence, stopping malicious actors from enumerating endpoints.

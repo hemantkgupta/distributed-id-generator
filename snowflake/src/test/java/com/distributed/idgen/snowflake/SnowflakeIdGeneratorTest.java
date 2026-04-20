@@ -75,6 +75,18 @@ class SnowflakeIdGeneratorTest {
             assertThatThrownBy(() -> new SnowflakeIdGenerator(-1, 0))
                     .isInstanceOf(IllegalArgumentException.class);
         }
+
+        @Test
+        @DisplayName("Should reject non-positive bounded wait threshold")
+        void shouldRejectNonPositiveBoundedWaitThreshold() {
+            assertThatThrownBy(() -> new SnowflakeIdGenerator(
+                    0,
+                    0,
+                    SnowflakeIdGenerator.ClockRollbackPolicy.BOUNDED_WAIT,
+                    0))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("maxBackwardMillis");
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -198,6 +210,57 @@ class SnowflakeIdGeneratorTest {
             assertThatThrownBy(backwardsClockGen::generate)
                     .isInstanceOf(IdGenerationException.class)
                     .hasMessageContaining("Clock moved backwards");
+        }
+
+        @Test
+        @DisplayName("Should recover when bounded-wait policy sees a small rollback")
+        void shouldRecoverWhenRollbackWithinBoundedWaitLimit() {
+            SnowflakeIdGenerator boundedWaitGen = new SnowflakeIdGenerator(
+                    0,
+                    0,
+                    SnowflakeIdGenerator.ClockRollbackPolicy.BOUNDED_WAIT,
+                    5L) {
+                private final long[] timestamps = {1000L, 999L, 1000L};
+                private int idx = 0;
+
+                @Override
+                long currentEpochMillis() {
+                    return timestamps[Math.min(idx++, timestamps.length - 1)];
+                }
+
+                @Override
+                void sleepMillis(long millis) {
+                    // no-op; the overridden clock advances on the next read
+                }
+            };
+
+            long first = boundedWaitGen.generate();
+            long second = boundedWaitGen.generate();
+
+            assertThat(second).isGreaterThan(first);
+        }
+
+        @Test
+        @DisplayName("Should fail when rollback exceeds bounded-wait limit")
+        void shouldFailWhenRollbackExceedsBoundedWaitLimit() {
+            SnowflakeIdGenerator boundedWaitGen = new SnowflakeIdGenerator(
+                    0,
+                    0,
+                    SnowflakeIdGenerator.ClockRollbackPolicy.BOUNDED_WAIT,
+                    5L) {
+                private final long[] timestamps = {1000L, 990L};
+                private int idx = 0;
+
+                @Override
+                long currentEpochMillis() {
+                    return timestamps[Math.min(idx++, timestamps.length - 1)];
+                }
+            };
+
+            boundedWaitGen.generate();
+            assertThatThrownBy(boundedWaitGen::generate)
+                    .isInstanceOf(IdGenerationException.class)
+                    .hasMessageContaining("bounded-wait limit");
         }
     }
 

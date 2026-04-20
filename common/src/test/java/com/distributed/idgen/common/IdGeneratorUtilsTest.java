@@ -4,6 +4,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import static org.assertj.core.api.Assertions.*;
 
 @DisplayName("IdGeneratorUtils")
@@ -57,6 +59,22 @@ class IdGeneratorUtilsTest {
         @DisplayName("Should return empty string for empty byte array")
         void shouldReturnEmptyStringForEmptyBytes() {
             assertThat(IdGeneratorUtils.toHexString(new byte[0])).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("waitNextMillis")
+    class WaitNextMillis {
+
+        @Test
+        @DisplayName("Should use the supplied clock domain when waiting for the next tick")
+        void shouldUseSuppliedClockDomain() {
+            long[] timestamps = {5L, 5L, 6L};
+            AtomicInteger idx = new AtomicInteger();
+
+            long result = IdGeneratorUtils.waitNextMillis(5L, () -> timestamps[idx.getAndIncrement()]);
+
+            assertThat(result).isEqualTo(6L);
         }
     }
 }

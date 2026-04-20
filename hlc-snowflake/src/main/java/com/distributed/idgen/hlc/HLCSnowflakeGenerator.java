@@ -138,7 +138,7 @@ public class HLCSnowflakeGenerator implements IdGenerator<Long> {
             int newLogical = current.logicalCount() + 1;
             if (newLogical > HybridLogicalClock.MAX_LOGICAL_COUNT) {
                 // Logical counter exhausted — spin-wait for physical clock to advance
-                long next = IdGeneratorUtils.waitNextMillis(current.physicalTime());
+                long next = IdGeneratorUtils.waitNextMillis(current.physicalTime(), this::currentEpochMillis);
                 return new HybridLogicalClock(next, 0);
             }
             return new HybridLogicalClock(current.physicalTime(), newLogical);

@@ -4,6 +4,9 @@ import com.distributed.idgen.common.IdGenerationException;
 import com.distributed.idgen.common.IdGenerator;
 import com.distributed.idgen.common.IdGeneratorUtils;
 
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+
 /**
  * Twitter Snowflake 64-bit distributed ID generator.
  *
@@ -29,6 +32,14 @@ import com.distributed.idgen.common.IdGeneratorUtils;
  * safe for use by multiple threads sharing one generator instance.
  */
 public class SnowflakeIdGenerator implements IdGenerator<Long> {
+
+    /**
+     * Runtime handling strategy when the wall clock moves backwards.
+     */
+    public enum ClockRollbackPolicy {
+        FAIL_FAST,
+        BOUNDED_WAIT
+    }
 
     // -----------------------------------------------------------------------
     // Bit allocations
@@ -84,6 +95,8 @@ public class SnowflakeIdGenerator implements IdGenerator<Long> {
 
     private final long workerId;
     private final long datacenterId;
+    private final ClockRollbackPolicy rollbackPolicy;
+    private final long maxBackwardMillis;
 
     private long lastTimestamp = -1L;
     private long sequence = 0L;
@@ -99,10 +112,32 @@ public class SnowflakeIdGenerator implements IdGenerator<Long> {
      * @param workerId     worker/machine identifier, must be 0–31
      */
     public SnowflakeIdGenerator(long datacenterId, long workerId) {
+        this(datacenterId, workerId, ClockRollbackPolicy.FAIL_FAST, 0L);
+    }
+
+    /**
+     * Creates a new Snowflake generator with an explicit rollback-handling policy.
+     *
+     * @param datacenterId      datacenter identifier, must be 0–31
+     * @param workerId          worker/machine identifier, must be 0–31
+     * @param rollbackPolicy    how to react when the wall clock moves backwards
+     * @param maxBackwardMillis maximum tolerated rollback when using
+     *                          {@link ClockRollbackPolicy#BOUNDED_WAIT}
+     */
+    public SnowflakeIdGenerator(
+            long datacenterId,
+            long workerId,
+            ClockRollbackPolicy rollbackPolicy,
+            long maxBackwardMillis) {
         IdGeneratorUtils.validateNodeId(datacenterId, MAX_DATACENTER_ID, "datacenterId");
         IdGeneratorUtils.validateNodeId(workerId, MAX_WORKER_ID, "workerId");
+        this.rollbackPolicy = Objects.requireNonNull(rollbackPolicy, "rollbackPolicy must not be null");
+        if (rollbackPolicy == ClockRollbackPolicy.BOUNDED_WAIT && maxBackwardMillis <= 0) {
+            throw new IllegalArgumentException("maxBackwardMillis must be > 0 for BOUNDED_WAIT policy");
+        }
         this.datacenterId = datacenterId;
         this.workerId = workerId;
+        this.maxBackwardMillis = rollbackPolicy == ClockRollbackPolicy.BOUNDED_WAIT ? maxBackwardMillis : 0L;
     }
 
     /**
@@ -140,9 +175,7 @@ public class SnowflakeIdGenerator implements IdGenerator<Long> {
         long currentTimestamp = currentEpochMillis();
 
         if (currentTimestamp < lastTimestamp) {
-            throw new IdGenerationException(
-                    String.format("Clock moved backwards! Refusing to generate IDs for %d ms",
-                            lastTimestamp - currentTimestamp));
+            currentTimestamp = handleClockRollback(currentTimestamp);
         }
 
         if (currentTimestamp == lastTimestamp) {
@@ -150,7 +183,7 @@ public class SnowflakeIdGenerator implements IdGenerator<Long> {
             sequence = (sequence + 1) & MAX_SEQUENCE;
             if (sequence == 0) {
                 // Sequence exhausted — spin-wait until next millisecond
-                currentTimestamp = IdGeneratorUtils.waitNextMillis(lastTimestamp);
+                currentTimestamp = IdGeneratorUtils.waitNextMillis(lastTimestamp, this::currentEpochMillis);
             }
         } else {
             // New millisecond — reset sequence
@@ -183,6 +216,14 @@ public class SnowflakeIdGenerator implements IdGenerator<Long> {
         return datacenterId;
     }
 
+    public ClockRollbackPolicy getRollbackPolicy() {
+        return rollbackPolicy;
+    }
+
+    public long getMaxBackwardMillis() {
+        return maxBackwardMillis;
+    }
+
     public long getLastTimestamp() {
         return lastTimestamp;
     }
@@ -193,6 +234,48 @@ public class SnowflakeIdGenerator implements IdGenerator<Long> {
 
     long currentEpochMillis() {
         return System.currentTimeMillis() - CUSTOM_EPOCH;
+    }
+
+    long handleClockRollback(long currentTimestamp) {
+        long driftMillis = lastTimestamp - currentTimestamp;
+        if (rollbackPolicy == ClockRollbackPolicy.FAIL_FAST) {
+            throw backwardClockException(driftMillis, null);
+        }
+        if (driftMillis > maxBackwardMillis) {
+            throw backwardClockException(driftMillis,
+                    String.format("exceeding bounded-wait limit of %d ms", maxBackwardMillis));
+        }
+        return waitForClockToCatchUp(lastTimestamp, driftMillis);
+    }
+
+    long waitForClockToCatchUp(long targetTimestamp, long driftMillis) {
+        long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(maxBackwardMillis + 1);
+        long currentTimestamp = currentEpochMillis();
+
+        while (currentTimestamp < targetTimestamp) {
+            if (System.nanoTime() > deadlineNanos) {
+                throw backwardClockException(driftMillis,
+                        String.format("clock did not recover within %d ms bounded wait", maxBackwardMillis));
+            }
+            try {
+                sleepMillis(1L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IdGenerationException("Interrupted while waiting for clock to recover", e);
+            }
+            currentTimestamp = currentEpochMillis();
+        }
+
+        return currentTimestamp;
+    }
+
+    void sleepMillis(long millis) throws InterruptedException {
+        Thread.sleep(millis);
+    }
+
+    private IdGenerationException backwardClockException(long driftMillis, String detail) {
+        String suffix = detail == null ? "" : " (" + detail + ")";
+        return new IdGenerationException(String.format("Clock moved backwards by %d ms%s", driftMillis, suffix));
     }
 
     /**
